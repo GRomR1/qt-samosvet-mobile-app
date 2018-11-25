@@ -79,6 +79,10 @@ Widget::Widget(QWidget *parent) :
                      this, SLOT(buttonClicked(bool)));
     QObject::connect(ui->greenCenter, SIGNAL(toggled(bool)),
                      this, SLOT(buttonClicked(bool)));
+
+    nwam = new QNetworkAccessManager;
+//    connect(nwam, SIGNAL(finished(QNetworkReply*)),
+//            this, SLOT(replyFinish(QNetworkReply*)));
 }
 
 Widget::~Widget()
@@ -87,14 +91,30 @@ Widget::~Widget()
 }
 
 
+void Widget::replyFinish(QNetworkReply *reply)
+{
+//    qDebug() << ((reply->error() == QNetworkReply::NoError)? "Success!" : "Error!");
+    QString answer = QString::fromUtf8(reply->readAll());
+    qDebug() << "answer" << answer;
+}
 
 void Widget::buttonClicked(bool state)
 {
     //    state == true // включить
     //    state == false // выключить
     QString lightName(sender()->objectName());
-    qDebug() << lightName
-             << state;
+//    qDebug() << lightName << state;
+    if ((lightName != "yellowCenter") && (lastPressedButton == lightName)){
+        QPushButton *pb = qobject_cast<QPushButton *>(sender());
+        if(pb){
+            qDebug() << pb->objectName() << !state;
+            pb->blockSignals(true);
+            pb->setChecked(!state);
+            pb->blockSignals(false);
+        }
+        return;
+    }
+    lastPressedButton = lightName;
 
     if (lightName == "redCenter"){
         sendCommand(lightName, state);
@@ -103,8 +123,8 @@ void Widget::buttonClicked(bool state)
     }
     else if (lightName == "yellowCenter") {
         sendCommand(lightName, state);
-        if(state)
-            yellowToggled();
+//        if(state)
+        yellowToggled(state);
     }
     else if (lightName == "greenCenter") {
         sendCommand(lightName, state);
@@ -115,7 +135,28 @@ void Widget::buttonClicked(bool state)
 
 void Widget::sendCommand(QString light, bool state)
 {
+    qDebug() << "sendCommand" << light << state;
+//    QString   apiUrl(URL+light.remove("Center"));
+//    QUrlQuery query;
+//    query.addQueryItem("state", QString::number(state));
+//    QUrl      url(apiUrl);
+//    url.setQuery(query);
 
+    QString   apiUrl(URL);
+    QUrlQuery query; //  http://192.168.111.1/lights.lua?color=red&state=1&submit=Submit
+    query.addQueryItem("color", light.remove("Center"));
+    query.addQueryItem("state", QString::number(state));
+    query.addQueryItem("submit", "Submit");
+    QUrl      url(apiUrl);
+    url.setQuery(query);
+
+    QNetworkRequest request;
+    request.setUrl(url);
+//    request.setHeader(QNetworkRequest::ContentTypeHeader, QVariant("application/x-www-form-urlencoded"));
+//    request.setRawHeader("Content-Transfer-Encoding","binary");
+
+//    nwam->get(request);
+    nwam->get(QNetworkRequest(url));
 }
 
 void Widget::redToggled()
@@ -138,7 +179,7 @@ void Widget::redToggled()
 }
 
 
-void Widget::yellowToggled()
+void Widget::yellowToggled(bool state)
 {
     this->ui->greenCenter->blockSignals(true);
     this->ui->redCenter->blockSignals(true);
@@ -151,8 +192,8 @@ void Widget::yellowToggled()
 
     this->ui->greenLeft->setChecked(false);
     this->ui->greenRight->setChecked(false);
-    this->ui->yellowLeft->setChecked(true);
-    this->ui->yellowRight->setChecked(true);
+    this->ui->yellowLeft->setChecked(state);
+    this->ui->yellowRight->setChecked(state);
     this->ui->redLeft->setChecked(false);
     this->ui->redRight->setChecked(false);
 }

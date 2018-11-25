@@ -1,0 +1,1 @@
+# qt-samosvet-mobile-app
